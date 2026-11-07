@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -15,7 +16,7 @@ jobs:
       contents: read
       id-token: write
     concurrency:
-      group: npm-publish-${{ github.event.release.tag_name }}
+      group: npm-publish-${{ github.ref_name }}
       cancel-in-progress: false
     steps:
       - name: Checkout
@@ -109,8 +110,8 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
-            type=raw,value=edge,enable=${{ github.event.release.prerelease == true }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=edge,enable=${{ contains(github.ref_name, '-') }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
