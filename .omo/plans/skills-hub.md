@@ -21,7 +21,7 @@
 4. Запись — один файл = один git-коммит; `SKILL.md` создаёт скилл; удаление `SKILL.md` запрещено.
 5. MCP-токен по умолчанию: `skills:read`,`skills:write`,`buckets:read`; `skills:delete` — opt-in.
 6. Кэш поколенческий: `current.json` — единственная точка коммита; ключ включает `apiUrl` и order-sensitive `bucketSignature`.
-7. Admin bootstrap: env-токен или одноразовый файл `DATA_DIR/admin-token` (0600), удаляется после первого входа.
+7. Admin-токен: только `SKILLS_HUB_ADMIN_TOKEN`, переменная обязательна; одноразового bootstrap-файла нет.
 8. Секреты: литерал, `{env:NAME}`, fallback `SKILLS_HUB_TOKEN`/`SKILLS_HUB_MCP_TOKEN`.
 
 ## Структура
@@ -44,11 +44,11 @@ docs/journal.md              # Phase 4
 - `apps/server/src/db.ts`: открытие `node:sqlite`, миграции `migrations/0001_init.sql`, WAL, busy_timeout, `user_version`.
 - `apps/server/src/git.ts`: `execFile`-обёртки, init/commit/ls-tree/cat-file, lock `data/locks/<slug>.lock`, allowlist remote URL.
 - `apps/server/src/indexer.ts`: reindex из `HEAD`, парсинг `bucket.json`/`SKILL.md`, наполнение `buckets/skills/files`.
-- `apps/server/src/auth.ts`: формат `shk_<id>_<secret>`, SHA-256, constant-time, scopes/bucket binding, admin bootstrap.
+- `apps/server/src/auth.ts`: формат `shk_<id>_<secret>`, SHA-256, constant-time, scopes/bucket binding, admin-токен из env.
 - `apps/server/src/services/*.ts`: buckets, skills read, tokens, audit.
 - `apps/server/src/http.ts`: Fastify, `/health`, `/ready`, `/api/v1/buckets`, `/api/v1/manifest`, `/api/v1/skills/:bucket/:name/files/*path`.
 - `apps/server/src/cli.ts`: `bucket add`, `token create`, `skill put-file`, `reindex`.
-- `apps/server/src/main.ts`: bootstrap, migrations, reindex, listen.
+- `apps/server/src/main.ts`: migrations, reindex, listen.
 - `apps/server/test/*.test.ts`: integration через `fastify.inject` + temp `DATA_DIR` + real git.
 
 ### Acceptance
@@ -80,10 +80,10 @@ docs/journal.md              # Phase 4
 
 ### Deliverables
 - `PUT /api/v1/admin/skills/:bucket/:name/files/*path`, `DELETE .../files/*path`, `DELETE /api/v1/admin/skills/:bucket/:name`.
-- `POST /api/v1/admin/login|logout`, `GET /api/v1/admin/session`, CSRF, session cookie, bootstrap-file lifecycle.
+- `POST /api/v1/admin/login|logout`, `GET /api/v1/admin/session`, CSRF, session cookie, admin-токен из env.
 - Buckets/tokens/audit admin endpoints; static UI `apps/server/public` (login, buckets, skills, editor, tokens, audit), hash routing.
 - Per-bucket mutex + lock; symlink lstat guard; `commit.gpgsign=false`; remote URL allowlist; push queue statuses.
-- Tests: per-file commit count, authz, CSRF, dirty tree, symlink, remote ext/file rejection, bootstrap deletion.
+- Tests: per-file commit count, authz, CSRF, dirty tree, symlink, remote ext/file rejection, admin login with env token.
 
 ### Acceptance
 - UI: bucket → SKILL.md → reference → visible in plugin next start.
