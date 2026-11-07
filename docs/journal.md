@@ -190,3 +190,27 @@ npm pack --workspace opencode-skills-hub --dry-run
 ### Commit
 
 Коммит цикла в `master`, затем тег `v0.0.3`. Первый publish по-прежнему требует `NPM_TOKEN` или ручного `npm publish`.
+
+## 2026-11-07 — 0.0.3 опубликован, релиз переведён на OIDC-only
+
+### Что сделано
+
+- Пакет `opencode-skills-hub` создан вручную: сначала `0.0.0-stage` (17:51 UTC), затем `0.0.3` (17:52 UTC). Сейчас `latest` указывает на `0.0.3`, `gitHead` совпадает с коммитом `941937a`.
+- Повторный запуск Release для `v0.0.3` падал не из-за авторизации: workflow стартовал в 17:54 UTC, когда версия `0.0.3` уже была опубликована. npm не перезаписывает существующие версии.
+- Из `release.yml` убран fallback через `NPM_TOKEN`. Публикация всегда идёт через OIDC trusted publishing, добавлен `--provenance`.
+- Версия поднята до `0.0.4`, чтобы получить первую OIDC-публикацию и валидировать trusted publisher, пока не истекло двухдневное окно.
+- Документация обновлена: первый publish только вручную, token fallback удалён.
+
+### Verification
+
+```bash
+npm ci --include=dev --dry-run
+npm run typecheck
+npm test
+npm run build
+npm pack --workspace opencode-skills-hub --dry-run
+```
+
+### Commit
+
+Коммит цикла в `master`, затем тег `v0.0.4`. Успешная публикация `0.0.4` через OIDC подтверждает trusted publisher.

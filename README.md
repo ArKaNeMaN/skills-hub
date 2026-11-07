@@ -23,7 +23,7 @@ docker compose pull
 docker compose up -d --no-build
 ```
 
-Теги: стабильный тег без `-` (`v0.0.3`) даёт `0.0.3`, `0.0` и `latest`; prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
+Теги: стабильный тег без `-` (`v0.0.4`) даёт `0.0.4`, `0.0` и `latest`; prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
 
 Для production за reverse proxy с TLS задайте в `.env`:
 
@@ -41,7 +41,7 @@ TLS терминирует proxy (Caddy, nginx). Порт `8787` наружу н
 opencode plugin opencode-skills-hub
 ```
 
-Пакет публикуется тем же workflow по push тега. До первого успешного запуска подключайте плагин из локальной сборки репозитория.
+Пакет `opencode-skills-hub` публикуется тем же workflow по push тега. Для локальной проверки до релиза подключайте плагин из сборки репозитория.
 
 Или вручную в `opencode.json`:
 

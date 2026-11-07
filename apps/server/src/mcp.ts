@@ -38,7 +38,7 @@ function actor(principal: Principal) {
 }
 
 function buildServer(context: AppContext, principal: Principal): McpServer {
-  const server = new McpServer({ name: "skills-hub", version: "0.0.3" })
+  const server = new McpServer({ name: "skills-hub", version: "0.0.4" })
 
   if (hasScope(principal.scopes, "buckets:read")) {
     server.registerTool(

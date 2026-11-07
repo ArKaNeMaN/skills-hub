@@ -2,7 +2,7 @@
 
 Релизы делает `.github/workflows/release.yml` по push тега `v*`. Workflow проверяет тег и версию, гоняет тесты и сборку, публикует плагин в npm и отправляет образ сервера в GHCR. GitHub Release не обязателен: публикацию запускает сам тег.
 
-До первого успешного запуска workflow ни npm-пакета, ни образа в GHCR нет. Локальная сборка и `docker compose up --build` работают без публикации.
+Пакет `opencode-skills-hub` и образ в GHCR уже существуют: первый publish пакета был ручным, дальше релизы идут через trusted publishing по тегу. Локальная сборка и `docker compose up --build` работают без публикации.
 
 ## Как выпустить релиз
 
@@ -30,9 +30,7 @@ Workflow берёт код из тега. Тег, созданный до поя
 
 ## npm: первый publish
 
-Trusted publishing не умеет создавать новый пакет. Пакет должен уже существовать, поэтому первый publish делается одним из двух способов.
-
-### Вариант A: вручную
+Trusted publishing не умеет создавать новый пакет. Первый publish был сделан вручную, один раз:
 
 ```bash
 npm ci --include=dev
@@ -40,15 +38,7 @@ npm run build
 npm publish --workspace=opencode-skills-hub
 ```
 
-Нужен `npm login` под владельцем пакета. После этого пакет существует, и можно настроить trusted publisher.
-
-### Вариант B: через NPM_TOKEN
-
-1. Создайте granular access token в npm (см. ниже).
-2. Добавьте его в GitHub: Settings -> Secrets and variables -> Actions -> `NPM_TOKEN`.
-3. Запустите release workflow. Job увидит токен и опубликует пакет с `--provenance`.
-
-Это bootstrap-путь. После настройки trusted publisher удалите `NPM_TOKEN`, иначе workflow всегда будет выбирать token-путь вместо OIDC.
+Нужен `npm login` и OTP. После появления пакета настраивается trusted publisher, и дальше workflow публикует новые версии без токенов.
 
 ### Имя пакета
 
@@ -56,7 +46,7 @@ npm publish --workspace=opencode-skills-hub
 
 ## npm: trusted publisher
 
-После первого publish откройте `npmjs.com/package/opencode-skills-hub` → Settings → Trusted Publisher и добавьте:
+Откройте `npmjs.com/package/opencode-skills-hub` → Settings → Trusted Publisher и добавьте:
 
 - publisher: GitHub Actions;
 - organization/user: `ArKaNeMaN`;
@@ -67,17 +57,7 @@ npm publish --workspace=opencode-skills-hub
 
 Конфигурации, созданные после 2026-09-03, по умолчанию работают в режиме stage-only. Прямой `npm publish` нужно разрешить явно, иначе workflow не опубликует пакет сразу.
 
-После успешной проверки OIDC удалите секрет `NPM_TOKEN` из GitHub. Пока секрет существует, workflow использует его и не проверяет trusted publisher.
-
-## npm: token fallback
-
-1. npmjs.com -> Access Tokens -> Generate New Token -> Granular Access Token.
-2. Дайте право на публикацию пакетов (`read` и `write` для packages).
-3. Выберите пакет `opencode-skills-hub` явно.
-4. Если на аккаунте включена 2FA, включите bypass 2FA для automation-токена. Иначе CI не сможет опубликовать пакет без OTP.
-5. Сохраните токен как GitHub Actions secret `NPM_TOKEN`.
-
-Частая ошибка: доступ к организации не даёт право на publish. В granular token нужно явно выбрать пакет и выдать write-право.
+Workflow публикует только через OIDC, `NPM_TOKEN` ему не нужен. Секрет в GitHub можно не создавать, а существующий лучше удалить.
 
 ## GHCR
 
@@ -85,18 +65,18 @@ Workflow использует `GITHUB_TOKEN` и permission `packages: write`. О
 
 Теги:
 
-- стабильный тег без `-` (`v0.0.3`) даёт `0.0.3`, `0.0` и `latest`;
+- стабильный тег без `-` (`v0.0.4`) даёт `0.0.4`, `0.0` и `latest`;
 - prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
 
 После первого push при необходимости откройте настройки package в GitHub и выставьте public visibility, если образ должен тянуться без авторизации.
 
 ## Частые сбои
 
-- **Тег не совпадает с версией.** Guard падает до публикации. Тег `v0.0.3` должен соответствовать версии `0.0.3`.
+- **Тег не совпадает с версией.** Guard падает до публикации. Тег `v0.0.4` должен соответствовать версии `0.0.4`.
 - **Версия уже существует.** npm не перезаписывает версии. Поднимите версию и выпустите новый тег.
-- **Нет trusted publisher.** OIDC-публикация падает с ошибкой авторизации. Настройте publisher или используйте `NPM_TOKEN` для bootstrap.
+- **Нет trusted publisher.** OIDC-публикация падает с ошибкой авторизации. Настройте publisher в настройках пакета.
 - **Stage-only по умолчанию.** Новый trusted publisher не публикует напрямую, пока не разрешён `npm publish`.
-- **2FA.** Ручной publish требует OTP, CI требует granular token с bypass 2FA.
+- **2FA.** Ручной первый publish требует OTP. CI использует OIDC и токенов не требует.
 - **Приватный репозиторий и provenance.** Публикация с `--provenance` рассчитана на публичный source. При приватном форке аттестация может быть недоступна.
 - **Неправильный `--workspace`.** `npm publish` запускайте из корня репозитория с точным именем `opencode-skills-hub`. Без `--workspace` можно опубликовать не тот пакет или пакет без `dist`.
 - **Забыли сборку.** В пакет попадает только `dist` из `files`. Перед ручной публикацией выполните `npm run build` и проверьте `npm pack --workspace=opencode-skills-hub --dry-run`.
