@@ -15,7 +15,7 @@ docker compose exec skills-hub cat /data/admin-token
 
 ### Сервер: готовый образ (опционально)
 
-Образ публикуется release-workflow. До первого релиза используйте локальную сборку.
+Образ публикуется workflow `Release` по push тега `v*`. До первого релиза используйте локальную сборку.
 
 ```bash
 export SKILLS_HUB_IMAGE=ghcr.io/arkaneman/skills-hub:<tag>
@@ -23,7 +23,7 @@ docker compose pull
 docker compose up -d --no-build
 ```
 
-Теги: prerelease `v0.0.1` даёт `0.0.1`, `0.0` и `edge`; стабильный релиз даёт версию, `major.minor` и `latest`. Сейчас `v0.0.1` это prerelease, поэтому `latest` ещё нет.
+Теги: стабильный тег без `-` (`v0.0.2`) даёт `0.0.2`, `0.0` и `latest`; prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
 
 Для production за reverse proxy с TLS задайте в `.env`:
 
@@ -41,7 +41,7 @@ TLS терминирует proxy (Caddy, nginx). Порт `8787` наружу н
 opencode plugin @skills-hub/opencode-plugin
 ```
 
-Пакет появляется в npm после первого запуска release-workflow. До этого подключайте плагин из локальной сборки репозитория.
+Пакет публикуется тем же workflow по push тега. До первого успешного запуска подключайте плагин из локальной сборки репозитория.
 
 Или вручную в `opencode.json`:
 

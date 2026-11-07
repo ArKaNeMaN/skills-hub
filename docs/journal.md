@@ -140,4 +140,30 @@ npm pack --workspace @skills-hub/opencode-plugin --dry-run
 
 ### Commit
 
-Изменения этого цикла не закоммичены: владелец не просил. Историческая запись выше о предыдущем цикле остаётся в силе.
+Изменения этого цикла закоммичены и запушены в `master`. Публикация переведена на push тега, см. запись ниже.
+
+## 2026-11-07 — публикация по тегу, версия 0.0.2
+
+### Что сделано
+
+- `.github/workflows/release.yml` запускается по push тега `v*`, а не по `release: published`. GitHub Release для публикации больше не нужен.
+- GHCR-теги выводятся из имени тега: стабильный тег без `-` даёт версию, `major.minor` и `latest`; prerelease-тег с `-` даёт версию, `major.minor` и `edge`.
+- Версия поднята до `0.0.2` в корне, `apps/server`, `apps/plugin`, строках `/health`, MCP-сервера, `User-Agent` плагина и `package-lock.json`.
+- Тег `v0.0.1` остаётся на старом коммите до появления пайплайна; новая публикация идёт тегом `v0.0.2`.
+- Документация обновлена под tag-triggered релиз: `docs/publishing.md`, `README.md`, `docs/design.md`.
+
+### Verification
+
+```bash
+npm ci --include=dev --dry-run
+npm run typecheck
+npm test
+npm run build
+npm pack --workspace @skills-hub/opencode-plugin --dry-run
+```
+
+CI на `master` после пуша зелёный. Публикацию запускает push тега `v0.0.2`.
+
+### Commit
+
+Коммиты цикла в `master`, затем тег `v0.0.2`. Первый publish в npm требует `NPM_TOKEN` в GitHub Secrets или ручного `npm publish` владельцем scope: trusted publishing не создаёт новый пакет.

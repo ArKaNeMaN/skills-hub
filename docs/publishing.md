@@ -1,6 +1,6 @@
 # Публикация skills-hub
 
-Релизы делает `.github/workflows/release.yml` по событию `release: published`. Workflow проверяет тег и версию, гоняет тесты и сборку, публикует плагин в npm и отправляет образ сервера в GHCR.
+Релизы делает `.github/workflows/release.yml` по push тега `v*`. Workflow проверяет тег и версию, гоняет тесты и сборку, публикует плагин в npm и отправляет образ сервера в GHCR. GitHub Release не обязателен: публикацию запускает сам тег.
 
 До первого успешного запуска workflow ни npm-пакета, ни образа в GHCR нет. Локальная сборка и `docker compose up --build` работают без публикации.
 
@@ -13,7 +13,7 @@
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-4. Создайте GitHub Release для этого тега и опубликуйте его. Для prerelease поставьте соответствующую галочку.
+4. При необходимости создайте GitHub Release для этого тега с описанием изменений. На публикацию это не влияет.
 5. Проверьте оба job в Actions: `Publish plugin to npm` и `Publish server image to GHCR`.
 
 Workflow делает:
@@ -24,9 +24,9 @@ Workflow делает:
 - `npm publish --workspace=@skills-hub/opencode-plugin --access public`;
 - сборку и push образа `ghcr.io/arkaneman/skills-hub`.
 
-## Текущий тег v0.0.1
+## Тег должен указывать на коммит с workflow
 
-Тег `v0.0.1` указывает на коммит до появления release-пайплайна. Чтобы опубликовать `0.0.1` новым workflow, нужно либо перенести тег на коммит с этим setup (`git tag -f v0.0.1 <commit>` и `git push --force origin v0.0.1`), затем удалить и заново создать GitHub Release, либо выпустить новую версию. Force-push тега и пересоздание релиза обязательны: workflow берёт код из тега, а не из `master`.
+Workflow берёт код из тега. Тег, созданный до появления `.github/workflows/release.yml`, публикацию не запустит. Перед первым релизом убедитесь, что тег указывает на коммит, где уже есть build-конфигурация и сам workflow.
 
 ## npm: первый publish
 
@@ -85,9 +85,8 @@ Workflow использует `GITHUB_TOKEN` и permission `packages: write`. О
 
 Теги:
 
-- `v0.0.1` (prerelease) даёт `0.0.1`, `0.0` и `edge`;
-- стабильный релиз даёт версию, `major.minor` и `latest`;
-- `latest` появляется только после стабильного релиза. Сейчас его нет.
+- стабильный тег без `-` (`v0.0.2`) даёт `0.0.2`, `0.0` и `latest`;
+- prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
 
 После первого push при необходимости откройте настройки package в GitHub и выставьте public visibility, если образ должен тянуться без авторизации.
 

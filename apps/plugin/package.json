@@ -1,6 +1,6 @@
 {
   "name": "@skills-hub/opencode-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "description": "opencode plugin that delivers Agent Skills from a skills-hub server",
   "keywords": [
