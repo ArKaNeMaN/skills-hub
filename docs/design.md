@@ -193,6 +193,7 @@ data/repos/<slug>/            # рабочее дерево, не bare
 | `DELETE /admin/skills/:bucket/:name` | удалить скилл целиком, один коммит | `skills:delete` |
 | `GET /admin/tokens` | список токенов без секретов | `tokens:admin` |
 | `POST /admin/tokens` | создать токен, секрет отдаётся один раз | `tokens:admin` |
+| `PATCH /admin/tokens/:id` | изменить scopes и привязку к бакетам, секрет не меняется | `tokens:admin` |
 | `DELETE /admin/tokens/:id` | отозвать токен | `tokens:admin` |
 | `GET /admin/audit?limit=&before=` | журнал аудита | `audit:read` |
 | `POST /admin/reindex` | принудительный reindex | admin |
@@ -337,6 +338,8 @@ HTTP/1.1 201 Created
 Привязка: `token_buckets`. Для не-админского токена требуется хотя бы один бакет; `all_buckets=1` допустим только для `admin`. Каждый запрос к бакету проверяет привязку; SQL-запросы всегда фильтруются по `bucket_id` из проверенного principal, а не по данным из тела. Manifest с недоступным бакетом — `403`, не молчаливое усечение.
 
 Потолок прав: токен с `tokens:admin` может выпускать только токены с подмножеством собственных scopes и бакетов; `admin` и `all_buckets=1` выдаёт только admin-сессия. Иначе компрометация `tokens:admin` эскалируется до полного админа. `buckets:write` — деструктивный scope (удаление бакета), его не получает клиентский или MCP-токен по умолчанию.
+
+Права уже выпущенного токена можно изменить через `PATCH /admin/tokens/:id`: scopes и привязку к бакетам правят без перевыпуска, `id` и секрет не меняются. Потолок прав действует и для обновлений: токен с `tokens:admin` не может поднять чужой токен выше собственных scopes и бакетов, а `all_buckets=1` выставляет только admin-сессия. После успешного изменения все активные MCP-сессии изменённого токена закрываются, поэтому отозванный scope перестаёт работать сразу, а не после переподключения.
 
 Примеры: клиентский токен плагина — `skills:read`,`buckets:read` + `buckets:[default,team]` (`buckets:read` нужен для reconciliation при 403); MCP-токен — `skills:read`,`skills:write`,`buckets:read` + свои бакеты, потому что MCP — основной write-путь; `skills:delete` — отдельный opt-in; `buckets:write` и `tokens:admin` — только админ-сессия/CLI. MCP-токен можно выпустить и read-only, если агент не должен писать.
 

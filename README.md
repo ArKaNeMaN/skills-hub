@@ -65,7 +65,10 @@ opencode plugin opencode-skills-hub
 ```bash
 docker compose exec skills-hub node dist/cli.js bucket add default Default "Default bucket"
 docker compose exec skills-hub node dist/cli.js token create laptop --scopes skills:read,buckets:read --buckets default
+docker compose exec skills-hub node dist/cli.js token create mcp-agent --scopes skills:read,skills:write,buckets:read --buckets default
 ```
+
+MCP использует обычный токен: подключитесь к `POST /mcp` с `Authorization: Bearer <token>`. Права токена можно изменить позже во вкладке Tokens или через `PATCH /api/v1/admin/tokens/:id` — секрет при этом не меняется.
 
 Токен показывается один раз. Передайте его через `SKILLS_HUB_TOKEN` или `"token": "{env:SKILLS_HUB_TOKEN}"`. Отдельный `npm install` для плагина не нужен: opencode ставит npm-плагины при старте.
 
