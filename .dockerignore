@@ -1,0 +1,53 @@
+# Dependencies are installed inside the build stage.
+node_modules
+**/node_modules
+
+# VCS and CI metadata
+.git
+.github
+
+# Local runtime state and secrets
+data
+.env
+.env.*
+!.env.example
+.hanse
+
+# Agent / planning artifacts
+.omo
+
+# Build outputs, caches, and coverage
+dist
+**/dist
+build
+**/build
+*.tsbuildinfo
+**/*.tsbuildinfo
+coverage
+**/coverage
+.cache
+**/.cache
+
+# Logs and temp artifacts
+*.log
+**/*.log
+logs
+**/logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+tmp
+**/tmp
+*.tmp
+**/*.tmp
+*.pid
+**/*.pid
+*.tgz
+*.tar.gz
+.DS_Store
+
+# Tests are not needed to build or run the server.
+apps/server/test
+apps/plugin/test
+**/*.test.ts

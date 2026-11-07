@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  npm-publish:
+    name: Publish plugin to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: npm-publish-${{ github.event.release.tag_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Verify release tag matches plugin version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./apps/plugin/package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Release tag '${GITHUB_REF_NAME}' does not match apps/plugin/package.json version '${version}'"
+            exit 1
+          fi
+          echo "Release tag '${GITHUB_REF_NAME}' matches plugin version '${version}'"
+
+      - name: Verify npm supports OIDC trusted publishing
+        run: |
+          set -euo pipefail
+          npm_version="$(npm --version)"
+          node -e '
+            const [current, minimum] = process.argv.slice(1).map((v) => v.split(".").map(Number));
+            const ok =
+              current[0] > minimum[0] ||
+              (current[0] === minimum[0] &&
+                (current[1] > minimum[1] ||
+                  (current[1] === minimum[1] && current[2] >= minimum[2])));
+            if (!ok) {
+              console.error(`npm ${process.argv[1]} is too old; 11.5.1 or newer is required for OIDC trusted publishing`);
+              process.exit(1);
+            }
+          ' "$npm_version" 11.5.1
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish plugin to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "Publishing with NPM_TOKEN (bootstrap fallback)"
+            npm publish --workspace=@skills-hub/opencode-plugin --access public --provenance
+          else
+            echo "Publishing with OIDC trusted publishing"
+            npm publish --workspace=@skills-hub/opencode-plugin --access public
+          fi
+
+  docker-publish:
+    name: Publish server image to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute lowercase image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
+            type=raw,value=edge,enable=${{ github.event.release.prerelease == true }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true

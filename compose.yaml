@@ -1,0 +1,47 @@
+# Local one-command start:
+#   docker compose up --build
+#
+# Defaults are for plain HTTP on localhost. A real deployment behind TLS
+# should set:
+#   PUBLIC_URL=https://hub.example.com
+#   TRUST_PROXY=true
+#   REQUIRE_TLS=true
+#
+# Leave SKILLS_HUB_ADMIN_TOKEN empty for local use: the server writes a
+# one-time bootstrap token to /data/admin-token. Read it with:
+#   docker compose exec skills-hub cat /data/admin-token
+#
+# To run a published image instead of building locally, set SKILLS_HUB_IMAGE
+# and start without a build:
+#   SKILLS_HUB_IMAGE=registry.example.com/example/skills-hub-server:0.0.0 \
+#     docker compose pull && docker compose up --no-build
+
+services:
+  skills-hub:
+    image: ${SKILLS_HUB_IMAGE:-skills-hub-server:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${SKILLS_HUB_PORT:-8787}:8787"
+    environment:
+      SKILLS_HUB_ADMIN_TOKEN: "${SKILLS_HUB_ADMIN_TOKEN:-}"
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+      TRUST_PROXY: "${TRUST_PROXY:-false}"
+      REQUIRE_TLS: "${REQUIRE_TLS:-false}"
+    volumes:
+      - skills-hub-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  skills-hub-data:

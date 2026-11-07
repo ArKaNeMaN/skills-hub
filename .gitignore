@@ -3,4 +3,7 @@ data/
 dist/
 coverage/
 *.log
+.env
+.env.*
+!.env.example
 .omo/run-continuation/
