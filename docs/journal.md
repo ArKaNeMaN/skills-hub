@@ -1,0 +1,116 @@
+# skills-hub — журнал реализации
+
+## 2026-11-07 — полный цикл Phase 0–4
+
+### Контекст
+
+Проект стартовал с нуля. Дизайн: `docs/design.md`. План: `.omo/plans/skills-hub.md` (ревью Momus пройдено). Владелец подтвердил: MCP — основной write-путь; уникальность имён в рамках бакета с клиентским override «последний выигрывает»; запись по файлу = один коммит; одноразовый admin bootstrap; токены литералом и через env. `skills:delete` для MCP выключен по умолчанию.
+
+### Что сделано
+
+- Монорепо npm workspaces: `packages/protocol`, `apps/server`, `apps/plugin`.
+- Protocol: zod-схемы manifest/problem, лимиты, валидаторы имён/путей, парсер frontmatter, canonical JSON/ETag.
+- Server: Fastify read/write API, `node:sqlite` + миграции, git-индекс из `HEAD`, reindex, scoped tokens, bucket binding, admin bootstrap и сессии/CSRF, audit, per-file commits, symlink guard, remote URL allowlist, push queue worker, static web UI, remote MCP (streamable HTTP).
+- Plugin: config layering + env interpolation, generation cache (`current.json`), bounded sync, 403 reconciliation, collision override, v1 path adapter, MCP injection, `sync` CLI.
+- Tests: 24 integration/unit + 1 e2e с реальным `opencode debug skill`.
+- Docs: `README.md`, этот журнал, дизайн обновлён под финальные решения.
+
+### Ключевые решения и почему
+
+- `node:sqlite` вместо `better-sqlite3`: Node 22 уже имеет встроенный модуль, нет нативного toolchain. API изолирован в `apps/server/src/db.ts`; дизайн обновлён (ADR A2).
+- Кэш поколенческий: один `current.json` — точка коммита; это убирает окно частичного состояния и рассинхрон `managed.json`.
+- Кэш-ключ включает `apiUrl` и order-sensitive `bucketSignature`: два проекта с разными наборами/порядком бакетов не перетирают кэш, порядок задаёт override.
+- Запись по файлу: `PUT/DELETE .../files/*path`; `SKILL.md` создаёт скилл; удаление `SKILL.md` запрещено; скилл виден после валидного `SKILL.md`.
+- MCP stateful streamable HTTP на официальном SDK: сессии `Mcp-Session-Id`, stateless не использован; `tools/list` фильтруется по scopes.
+- Bootstrap-токен: env или файл `DATA_DIR/admin-token` 0600; после первого login файл удаляется, токен инвалидируется.
+- Плагин ходит в hub через `node:http`/`node:https`, а не `fetch`: Bun-рантайм opencode в e2e вёл себя нестабильно с abort-таймаутами; `node:http` даёт предсказуемые таймауты и поддерживает `caFile`.
+
+### Verification
+
+```bash
+npm run typecheck   # green
+npm test            # 24 passed
+npm run test:e2e    # 1 passed (opencode 1.19.3/1.19.x)
+```
+
+E2E-сценарий: hub на ephemeral port → publish skill → `opencode debug skill` с temp HOME/project → skill виден → hub остановлен → skill виден из кэша.
+
+### Отклонения от плана
+
+- `npm run build` пока равен `tsc --noEmit`; dist-артефакт не собирается, сервер запускается через `tsx`. Это зафиксировано в README.
+- Push worker поддерживает только https-транспорт; ssh URL валидируется, но `GIT_ALLOW_PROTOCOL` ограничен https.
+- UI — hash-routing, без сборщика; markdown-preview не входит.
+- `caFile` реализован в HTTP-клиенте плагина через `https.request({ca})`.
+
+### Открытые нити
+
+- Собрать dist/пакет плагина для публикации в npm (`tsup` или `tsc` + exports).
+- Добавить метрики и алерты (Phase 4 hardening); базовый in-memory rate limit уже есть.
+- Проверить поведение дедупликации plugin entry global+project на реальном opencode (OQ-1).
+- Добавить human approval для MCP write, если риск prompt injection станет неприемлемым.
+- Расширить push worker на ssh allowlist и terminal-state алерты.
+
+### Следующие шаги
+
+Приоритеты: P0 — без этого нельзя считать срез готовым к реальным хостам; P1 — эксплуатационная зрелость; P2 — после стабилизации.
+
+#### P0. Упаковка и проверка на реальных хостах
+
+1. **Собрать dist/npm-пакет плагина.**
+   - Добавить `tsup` (или `tsc` + `exports`) для `apps/plugin`, собрать ESM с типами.
+   - Проверить `npm pack` и установку в чистый `~/.config/opencode/node_modules`.
+   - Acceptance: `opencode debug skill` видит скилл при подключении плагина как npm-пакета, без абсолютных путей.
+2. **Проверить global+project dedupe и приоритет конфигов.**
+   - Реальный opencode 1.19.x: плагин указан и в global, и в project `opencode.json`; опции из `.opencode/skills-hub.json`.
+   - Acceptance: sync выполняется один раз, порядок опций совпадает с дизайном; зафиксировать фактическое поведение в `docs/design.md` OQ-1.
+3. **Два хоста / два проекта.**
+   - Один хост с бакетами `default`, второй — `default+team` с override.
+   - Acceptance: кэши не пересекаются, override побеждает, удаление скилла в hub отражается на обоих после рестарта.
+4. **Smoke с реальным TLS/reverse proxy.**
+   - `PUBLIC_URL=https://...`, cookie `Secure`, Origin-проверка, `caFile` для приватного CA.
+   - Acceptance: login/CSRF/read/write работают через proxy; http-запросы не принимаются при `REQUIRE_TLS=true`.
+
+#### P1. Эксплуатационная зрелость
+
+5. **Push worker: ssh + terminal state.**
+   - Allowlist хостов для `ssh://`, `GIT_ALLOW_PROTOCOL` по конфигу, восстановление зависших `pushing`, алерт после `failed`.
+   - Acceptance: успешный push закрывает запись, non-fast-forward уходит в `failed` без бесконечного retry, ssh-remote работает при явном allowlist.
+6. **Метрики и алерты.**
+   - `/metrics`: manifest 304 rate, auth failures, git commits, push failures, reindex duration, sqlite busy, sync errors.
+   - Acceptance: Prometheus scrape, алерт на push failures и `last_index_error`.
+7. **Rate limit по токену/маршруту.**
+   - Сейчас есть только общий in-memory лимит на IP; добавить отдельные лимиты login/manifest/write и `Retry-After`.
+   - Acceptance: 429 на login после N попыток, запись не страдает от read-нагрузки.
+8. **Backup/restore runbook.**
+   - `sqlite3 .backup`, `git bundle`/rsync, восстановление без токенов и с токенами, проверка reindex.
+   - Acceptance: восстановленный hub отдаёт manifest и файлы; токены/сессии восстанавливаются только из БД.
+9. **Аудит: retention/export.**
+   - 90 дней, JSON/CSV export, cron-очистка.
+   - Acceptance: экспорт содержит commit/requestId, старые записи удаляются, UI не ломается.
+
+#### P2. Безопасность и развитие
+
+10. **Security-тесты.**
+    - Path traversal/fuzz, symlink в repo и write-path, YAML alias-бомба, oversized manifest, remote `ext::`/`file://`, scope escalation, CSRF/Origin.
+    - Acceptance: негативные кейсы покрыты тестами, ни один не даёт 500 с внутренними путями.
+11. **MCP hardening.**
+    - Лимиты размера tool-result, очистка сессий, опциональный human approval для `put_skill_file`/`delete_skill`, UI-индикатор write-токена.
+    - Acceptance: read-only токен не видит write tools; write-токен оставляет audit; сессия истекает.
+12. **v2 adapter.**
+    - Реализовать `ctx.skill.transform`/`reload` за существующим интерфейсом, включить feature detection.
+    - Acceptance: контрактный тест на фейковом v2 runtime; v1-путь не регрессирует.
+13. **Опционально: sharding/read replica.**
+    - Только после измеренной необходимости; SQLite+git остаются single-writer.
+
+#### Команды для следующего цикла
+
+```bash
+npm run typecheck
+npm test
+npm run test:e2e
+npm pack --workspace @skills-hub/opencode-plugin
+```
+
+### Commit
+
+Коммит не создавался: владелец не просил.
