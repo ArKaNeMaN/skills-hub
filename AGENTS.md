@@ -15,9 +15,11 @@ npm install            # dependencies (dev deps need --include=dev in some envir
 npm run typecheck      # tsc --noEmit
 npm test               # server + plugin integration tests
 npm run test:e2e       # real opencode debug skill; needs OPENCODE_BIN or opencode in PATH
-npm run build          # currently typecheck (dist packaging is deferred)
-npm start              # tsx apps/server/src/main.ts
-npm run cli -- ...     # server CLI: bucket add, token create, skill put-file, reindex
+npm run build          # dist for server + plugin (tsup)
+npm start              # tsx dev server: apps/server/src/main.ts
+npm run start:dist     # built server: node apps/server/dist/main.js
+npm run cli -- ...     # dev CLI: bucket add, token create, skill put-file, reindex
+npm run cli:dist -- ... # built CLI
 ```
 
 ## Conventions

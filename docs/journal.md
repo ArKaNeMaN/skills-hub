@@ -114,3 +114,30 @@ npm pack --workspace @skills-hub/opencode-plugin
 ### Commit
 
 Коммит не создавался: владелец не просил.
+
+## 2026-11-07 — dist, Docker и release-пайплайн
+
+### Что сделано
+
+- `npm run build` теперь собирает оба пакета через tsup. Сервер: `apps/server/dist/main.js`, `apps/server/dist/cli.js`, `apps/server/dist/migrations/0001_init.sql`; статика остаётся в `apps/server/public`. Runtime: `node apps/server/dist/main.js`; dev по-прежнему `npm start` через tsx.
+- Плагин собирается в `apps/plugin/dist` как standalone-пакет: `@skills-hub/protocol`, `yaml` и `zod` входят в бандл, runtime-зависимости от workspace нет. `npm pack --workspace @skills-hub/opencode-plugin --dry-run` проходит.
+- Добавлены многоступенчатый `Dockerfile` (runtime non-root `node`, `DATA_DIR=/data`, порт 8787, healthcheck `/health`) и `compose.yaml` с локальной сборкой, поддержкой `SKILLS_HUB_IMAGE`, `SKILLS_HUB_PORT`, `SKILLS_HUB_ADMIN_TOKEN`, `PUBLIC_URL`, `TRUST_PROXY`, `REQUIRE_TLS`. Есть `.env.example`.
+- CI (`ci.yml`) на push/PR: install, typecheck, test, build, `npm pack --dry-run`, upload артефактов, Docker build без push.
+- Release (`release.yml`) на `release: published`: guard тега и версии, guard npm >= 11.5.1, tests/build, публикация плагина в npm (OIDC trusted publishing, `NPM_TOKEN` как bootstrap-fallback) и push образа в GHCR.
+- npm bootstrap: trusted publishing не создаёт новый пакет. Первый publish возможен вручную или через `NPM_TOKEN`; после создания пакета настраивается trusted publisher для `ArKaNeMaN/skills-hub` и `release.yml`. Пока секрет `NPM_TOKEN` существует, workflow использует token-путь.
+- Тег `v0.0.1` указывает на коммит до release-пайплайна. Для публикации `0.0.1` новым workflow тег нужно перенести на коммит с этим setup и пересоздать GitHub Release, либо выпустить новую версию.
+
+### Измерения
+
+Полная сборка warm: около 5 секунд. Из них server tsup около 0.2 с, plugin tsup около 0.4 с, plugin dts около 2 с.
+
+### Verification
+
+```bash
+npm run build
+npm pack --workspace @skills-hub/opencode-plugin --dry-run
+```
+
+### Commit
+
+Изменения этого цикла не закоммичены: владелец не просил. Историческая запись выше о предыдущем цикле остаётся в силе.
