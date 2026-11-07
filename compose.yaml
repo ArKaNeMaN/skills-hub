@@ -1,15 +1,14 @@
 # Local one-command start:
 #   docker compose up --build
 #
-# Defaults are for plain HTTP on localhost. A real deployment behind TLS
-# should set:
+# Defaults are for plain HTTP on the local network. If the service is
+# exposed outside it, terminate TLS on a reverse proxy and set:
 #   PUBLIC_URL=https://hub.example.com
 #   TRUST_PROXY=true
 #   REQUIRE_TLS=true
 #
-# Leave SKILLS_HUB_ADMIN_TOKEN empty for local use: the server writes a
-# one-time bootstrap token to /data/admin-token. Read it with:
-#   docker compose exec skills-hub cat /data/admin-token
+# SKILLS_HUB_ADMIN_TOKEN is required: set it in .env before starting.
+# The same value logs in to the web UI.
 #
 # To run a published image instead of building locally, set SKILLS_HUB_IMAGE
 # and start without a build:
@@ -23,9 +22,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:${SKILLS_HUB_PORT:-8787}:8787"
+      - "${SKILLS_HUB_PORT:-8788}:8788"
     environment:
-      SKILLS_HUB_ADMIN_TOKEN: "${SKILLS_HUB_ADMIN_TOKEN:-}"
+      SKILLS_HUB_ADMIN_TOKEN: "${SKILLS_HUB_ADMIN_TOKEN:?set SKILLS_HUB_ADMIN_TOKEN in .env}"
       PUBLIC_URL: "${PUBLIC_URL:-}"
       TRUST_PROXY: "${TRUST_PROXY:-false}"
       REQUIRE_TLS: "${REQUIRE_TLS:-false}"
@@ -37,7 +36,7 @@ services:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:8787/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        - "fetch('http://127.0.0.1:8788/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 30s
       timeout: 5s
       start_period: 15s

@@ -41,7 +41,7 @@ FROM node:22-bookworm-slim AS runtime
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=8787 \
+    PORT=8788 \
     DATA_DIR=/data
 
 RUN apt-get update \
@@ -62,11 +62,11 @@ USER node
 
 VOLUME ["/data"]
 
-EXPOSE 8787
+EXPOSE 8788
 
 # No curl/wget in the slim image: use the bundled fetch.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD ["node", "-e", "fetch('http://127.0.0.1:8787/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+    CMD ["node", "-e", "fetch('http://127.0.0.1:8788/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
 # Exec form so SIGTERM reaches Node and the graceful shutdown handler runs.
 CMD ["node", "dist/main.js"]
