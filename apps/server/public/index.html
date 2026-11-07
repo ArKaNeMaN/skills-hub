@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>skills-hub</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <strong>skills-hub</strong>
+      <nav id="nav" hidden>
+        <button data-tab="buckets">Buckets</button>
+        <button data-tab="tokens">Tokens</button>
+        <button data-tab="audit">Audit</button>
+        <button id="logout" class="secondary">Logout</button>
+      </nav>
+    </header>
+    <main>
+      <section id="login">
+        <h1>Sign in</h1>
+        <p class="muted">Paste the bootstrap token from <code>data/admin-token</code>.</p>
+        <form id="login-form">
+          <input id="login-token" type="password" placeholder="admin token" autocomplete="current-password" required />
+          <button type="submit">Sign in</button>
+        </form>
+        <p id="login-error" class="error"></p>
+      </section>
+      <section id="app" hidden>
+        <section id="tab-buckets" class="tab">
+          <div class="row">
+            <h2>Buckets</h2>
+            <form id="bucket-form" class="inline">
+              <input id="bucket-slug" placeholder="slug" required />
+              <input id="bucket-name" placeholder="name" required />
+              <button type="submit">Create bucket</button>
+            </form>
+          </div>
+          <ul id="bucket-list" class="list"></ul>
+          <div id="bucket-view" hidden>
+            <div class="row">
+              <h3 id="bucket-title"></h3>
+              <form id="skill-form" class="inline">
+                <input id="skill-name" placeholder="skill-name" required />
+                <button type="submit">Create skill</button>
+              </form>
+            </div>
+            <ul id="skill-list" class="list"></ul>
+            <div id="skill-editor" hidden>
+              <div class="row">
+                <h3 id="skill-title"></h3>
+                <button id="delete-skill" class="danger">Delete skill</button>
+              </div>
+              <div id="files"></div>
+              <form id="add-file-form" class="inline">
+                <input id="add-file-path" placeholder="references/example.md" required />
+                <button type="submit">Add file</button>
+              </form>
+              <pre id="editor-status" class="muted"></pre>
+            </div>
+          </div>
+        </section>
+        <section id="tab-tokens" class="tab" hidden>
+          <h2>Tokens</h2>
+          <form id="token-form" class="stack">
+            <input id="token-label" placeholder="label" required />
+            <input id="token-buckets" placeholder="buckets, comma separated" required />
+            <label><input id="token-read" type="checkbox" checked /> skills:read</label>
+            <label><input id="token-write" type="checkbox" /> skills:write</label>
+            <label><input id="token-delete" type="checkbox" /> skills:delete</label>
+            <button type="submit">Create token</button>
+          </form>
+          <pre id="new-token" class="token"></pre>
+          <ul id="token-list" class="list"></ul>
+        </section>
+        <section id="tab-audit" class="tab" hidden>
+          <h2>Audit</h2>
+          <button id="refresh-audit" class="secondary">Refresh</button>
+          <table>
+            <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Bucket</th><th>Skill</th><th>Result</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
