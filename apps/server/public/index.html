@@ -65,9 +65,7 @@
           <form id="token-form" class="stack">
             <input id="token-label" placeholder="label" required />
             <input id="token-buckets" placeholder="buckets, comma separated" required />
-            <label><input id="token-read" type="checkbox" checked /> skills:read</label>
-            <label><input id="token-write" type="checkbox" /> skills:write</label>
-            <label><input id="token-delete" type="checkbox" /> skills:delete</label>
+            <div id="token-scopes" class="scopes"></div>
             <button type="submit">Create token</button>
           </form>
           <pre id="new-token" class="token"></pre>

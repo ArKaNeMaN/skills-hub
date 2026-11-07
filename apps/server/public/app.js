@@ -27,6 +27,38 @@ function el(tag, text, className) {
   return node
 }
 
+const ALL_SCOPES = [
+  "skills:read",
+  "skills:write",
+  "skills:delete",
+  "buckets:read",
+  "buckets:write",
+  "tokens:admin",
+  "audit:read",
+  "admin",
+]
+const DEFAULT_TOKEN_SCOPES = ["skills:read", "buckets:read"]
+
+function renderScopes(container, selected = []) {
+  const checked = new Set(selected)
+  container.replaceChildren()
+  for (const scope of ALL_SCOPES) {
+    const label = el("label")
+    const input = document.createElement("input")
+    input.type = "checkbox"
+    input.value = scope
+    input.checked = checked.has(scope)
+    label.append(input, document.createTextNode(` ${scope}`))
+    container.append(label)
+  }
+}
+
+function selectedScopes(container) {
+  return Array.from(container.querySelectorAll('input[type="checkbox"]'))
+    .filter((input) => input.checked)
+    .map((input) => input.value)
+}
+
 async function api(path, options = {}) {
   const method = (options.method ?? "GET").toUpperCase()
   const headers = { Accept: "application/json", ...(options.headers ?? {}) }
@@ -259,17 +291,90 @@ async function loadTokens() {
   list.replaceChildren()
   for (const token of data.tokens ?? []) {
     const item = el("li")
-    item.append(el("strong", token.label), el("span", ` ${token.id} `, "muted"))
-    item.append(el("span", (token.scopes ?? []).join(", "), "muted"))
-    if (token.revokedAt) item.append(el("span", " revoked", "error"))
-    else {
+    const head = el("div", undefined, "row")
+    const summary = el("div")
+    summary.append(el("strong", token.label), el("span", ` ${token.id}`, "muted"))
+    summary.append(el("div", `scopes: ${(token.scopes ?? []).join(", ") || "none"}`, "muted small"))
+    const bucketText = token.allBuckets ? "all buckets" : (token.buckets ?? []).join(", ") || "none"
+    summary.append(el("div", `buckets: ${bucketText}`, "muted small"))
+    if (token.revokedAt) summary.append(el("span", " revoked", "error"))
+    head.append(summary)
+    item.append(head)
+
+    if (!token.revokedAt) {
+      const editor = el("div", undefined, "token-editor")
+      editor.hidden = true
+
+      const scopeGroup = el("div", undefined, "scopes")
+      const bucketsInput = document.createElement("input")
+      bucketsInput.placeholder = "buckets, comma separated"
+      const allLabel = el("label")
+      const allCheckbox = document.createElement("input")
+      allCheckbox.type = "checkbox"
+      allLabel.append(allCheckbox, document.createTextNode(" All buckets"))
+      const error = el("p", undefined, "error small")
+      error.hidden = true
+      const buttons = el("div", undefined, "inline")
+      const save = el("button", "Save")
+      const cancel = el("button", "Cancel", "secondary")
+      buttons.append(save, cancel)
+      editor.append(scopeGroup, bucketsInput, allLabel, error, buttons)
+
+      const setError = (message) => {
+        error.textContent = message
+        error.hidden = !message
+      }
+      const resetEditor = () => {
+        renderScopes(scopeGroup, token.scopes ?? [])
+        bucketsInput.value = (token.buckets ?? []).join(", ")
+        allCheckbox.checked = Boolean(token.allBuckets)
+        bucketsInput.disabled = allCheckbox.checked
+        setError("")
+      }
+      allCheckbox.addEventListener("change", () => {
+        bucketsInput.disabled = allCheckbox.checked
+      })
+      save.addEventListener("click", async () => {
+        setError("")
+        const allBuckets = allCheckbox.checked
+        const scopes = selectedScopes(scopeGroup)
+        const buckets = allBuckets
+          ? []
+          : bucketsInput.value.split(",").map((entry) => entry.trim()).filter(Boolean)
+        if (!allBuckets && buckets.length === 0) {
+          setError("At least one bucket is required")
+          return
+        }
+        try {
+          await api(`/api/v1/admin/tokens/${encodeURIComponent(token.id)}`, {
+            method: "PATCH",
+            body: { scopes, buckets, allBuckets },
+          })
+          await loadTokens()
+        } catch (err) {
+          setError(err.message)
+        }
+      })
+      cancel.addEventListener("click", () => {
+        editor.hidden = true
+        resetEditor()
+      })
+      resetEditor()
+
+      const actions = el("div", undefined, "inline")
+      const edit = el("button", "Edit", "secondary")
       const revoke = el("button", "Revoke", "danger")
+      edit.addEventListener("click", () => {
+        editor.hidden = !editor.hidden
+      })
       revoke.addEventListener("click", async () => {
         if (!confirm(`Revoke ${token.label}?`)) return
         await api(`/api/v1/admin/tokens/${encodeURIComponent(token.id)}`, { method: "DELETE" })
         await loadTokens()
       })
-      item.append(revoke)
+      actions.append(edit, revoke)
+      head.append(actions)
+      item.append(editor)
     }
     list.append(item)
   }
@@ -277,9 +382,7 @@ async function loadTokens() {
 
 $("token-form").addEventListener("submit", async (event) => {
   event.preventDefault()
-  const scopes = ["skills:read"]
-  if ($("token-write").checked) scopes.push("skills:write")
-  if ($("token-delete").checked) scopes.push("skills:delete")
+  const scopes = selectedScopes($("token-scopes"))
   try {
     const data = await api("/api/v1/admin/tokens", {
       method: "POST",
@@ -311,5 +414,7 @@ async function loadAudit() {
 }
 
 $("refresh-audit").addEventListener("click", () => loadAudit())
+
+renderScopes($("token-scopes"), DEFAULT_TOKEN_SCOPES)
 
 loadSession()

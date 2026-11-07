@@ -54,6 +54,15 @@ textarea { width: 100%; min-height: 220px; font-family: ui-monospace, SFMono-Reg
 .muted { color: var(--muted); }
 .error { color: var(--danger); }
 .small { font-size: 0.85rem; }
+.scopes { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.token-editor {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.token-editor label { font-weight: normal; font-size: 1rem; }
 .token { background: var(--panel); border: 1px solid var(--border); padding: 0.75rem; overflow: auto; }
 table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
 th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 0.4rem; font-size: 0.9rem; }
