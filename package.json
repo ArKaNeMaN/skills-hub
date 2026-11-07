@@ -1,7 +1,7 @@
 {
   "name": "skills-hub",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -11,8 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test apps/server/test/*.test.ts apps/plugin/test/sync.test.ts",
     "test:e2e": "node --import tsx --test apps/plugin/test/e2e.test.ts",
-    "build": "npm run build --workspace @skills-hub/server && npm run build --workspace @skills-hub/opencode-plugin",
-    "build:plugin": "npm run build --workspace @skills-hub/opencode-plugin",
+    "build": "npm run build --workspace @skills-hub/server && npm run build --workspace opencode-skills-hub",
+    "build:plugin": "npm run build --workspace opencode-skills-hub",
     "build:server": "npm run build --workspace @skills-hub/server",
     "start": "tsx apps/server/src/main.ts",
     "cli": "tsx apps/server/src/cli.ts",

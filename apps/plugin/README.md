@@ -1,15 +1,15 @@
-# @skills-hub/opencode-plugin
+# opencode-skills-hub
 
 Плагин opencode 1.19.x: забирает Agent Skills из skills-hub, кэширует их и добавляет в `cfg.skills.paths`.
 
 ```bash
-opencode plugin @skills-hub/opencode-plugin
+opencode plugin opencode-skills-hub
 ```
 
 Или вручную в `opencode.json`:
 
 ```json
-{ "plugin": [["@skills-hub/opencode-plugin", { "apiUrl": "https://hub.example.com" }]] }
+{ "plugin": [["opencode-skills-hub", { "apiUrl": "https://hub.example.com" }]] }
 ```
 
 Токен берите из `SKILLS_HUB_TOKEN` или задайте `"token": "{env:SKILLS_HUB_TOKEN}"`. Нужен scope `skills:read,buckets:read`. Отдельный `npm install` не нужен: opencode ставит npm-плагины при старте.

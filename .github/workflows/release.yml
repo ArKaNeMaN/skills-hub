@@ -73,10 +73,10 @@ jobs:
           set -euo pipefail
           if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
             echo "Publishing with NPM_TOKEN (bootstrap fallback)"
-            npm publish --workspace=@skills-hub/opencode-plugin --access public --provenance
+            npm publish --workspace=opencode-skills-hub --provenance
           else
             echo "Publishing with OIDC trusted publishing"
-            npm publish --workspace=@skills-hub/opencode-plugin --access public
+            npm publish --workspace=opencode-skills-hub
           fi
 
   docker-publish:

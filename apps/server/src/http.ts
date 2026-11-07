@@ -185,7 +185,7 @@ export async function createApp(context: AppContext): Promise<FastifyInstance> {
       .send(problem(status, code, detail))
   })
 
-  app.get("/health", async () => ({ status: "ok", version: "0.0.2" }))
+  app.get("/health", async () => ({ status: "ok", version: "0.0.3" }))
 
   app.get("/ready", async (_request, reply) => {
     const issues: string[] = []

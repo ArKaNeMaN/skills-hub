@@ -23,7 +23,7 @@ docker compose pull
 docker compose up -d --no-build
 ```
 
-Теги: стабильный тег без `-` (`v0.0.2`) даёт `0.0.2`, `0.0` и `latest`; prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
+Теги: стабильный тег без `-` (`v0.0.3`) даёт `0.0.3`, `0.0` и `latest`; prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
 
 Для production за reverse proxy с TLS задайте в `.env`:
 
@@ -38,7 +38,7 @@ TLS терминирует proxy (Caddy, nginx). Порт `8787` наружу н
 ### Плагин opencode 1.19.x
 
 ```bash
-opencode plugin @skills-hub/opencode-plugin
+opencode plugin opencode-skills-hub
 ```
 
 Пакет публикуется тем же workflow по push тега. До первого успешного запуска подключайте плагин из локальной сборки репозитория.
@@ -48,7 +48,7 @@ opencode plugin @skills-hub/opencode-plugin
 ```json
 {
   "plugin": [
-    ["@skills-hub/opencode-plugin", {
+    ["opencode-skills-hub", {
       "apiUrl": "https://hub.example.com",
       "buckets": ["default"],
       "token": "{env:SKILLS_HUB_TOKEN}"
@@ -57,7 +57,7 @@ opencode plugin @skills-hub/opencode-plugin
 }
 ```
 
-`plugin` это массив верхнего уровня. Вариант `["@skills-hub/opencode-plugin"]` тоже подходит, если `apiUrl` задан в `.opencode/skills-hub.json` или глобальном конфиге, а токен через `SKILLS_HUB_TOKEN`.
+`plugin` это массив верхнего уровня. Вариант `["opencode-skills-hub"]` тоже подходит, если `apiUrl` задан в `.opencode/skills-hub.json` или глобальном конфиге, а токен через `SKILLS_HUB_TOKEN`.
 
 Создайте read-токен и бакет:
 

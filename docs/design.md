@@ -64,7 +64,7 @@ skills-hub/
 flowchart LR
   subgraph HOST["Хост opencode"]
     OC["opencode 1.19.x"]
-    PL["plugin @skills-hub/opencode-plugin"]
+    PL["plugin opencode-skills-hub"]
     CACHE[("cache ~/.cache/opencode/skills-hub/hash")]
     OC -->|"config hook, discovery"| PL
     PL -->|"sync, generation switch"| CACHE

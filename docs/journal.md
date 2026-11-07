@@ -167,3 +167,26 @@ CI на `master` после пуша зелёный. Публикацию зап
 ### Commit
 
 Коммиты цикла в `master`, затем тег `v0.0.2`. Первый publish в npm требует `NPM_TOKEN` в GitHub Secrets или ручного `npm publish` владельцем scope: trusted publishing не создаёт новый пакет.
+
+## 2026-11-07 — переименование npm-пакета в opencode-skills-hub
+
+### Что сделано
+
+- Имя `skills-hub` в npm занято чужим пакетом, рядом уже существует `@skills-hub-ai/*`. Плагин переименован в `opencode-skills-hub` и публикуется без scope: npm-организация не нужна.
+- Версия поднята до `0.0.3` в корне, `apps/server`, `apps/plugin`, строках `/health`, MCP-сервера, `User-Agent` плагина и `package-lock.json`.
+- `--workspace` в корневых скриптах, CI и release workflow переведён на `opencode-skills-hub`. У `npm publish` убран `--access public`: для unscoped-пакета он не нужен.
+- README, `apps/plugin/README.md`, `docs/design.md` и `docs/publishing.md` обновлены под новое имя.
+
+### Verification
+
+```bash
+npm ci --include=dev --dry-run
+npm run typecheck
+npm test
+npm run build
+npm pack --workspace opencode-skills-hub --dry-run
+```
+
+### Commit
+
+Коммит цикла в `master`, затем тег `v0.0.3`. Первый publish по-прежнему требует `NPM_TOKEN` или ручного `npm publish`.

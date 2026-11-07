@@ -80,7 +80,7 @@ function baseHeaders(token: string): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
     Accept: "application/json",
-    "User-Agent": "skills-hub-opencode-plugin/0.0.2",
+    "User-Agent": "opencode-skills-hub/0.0.3",
   }
 }
 

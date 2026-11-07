@@ -39,7 +39,7 @@ jobs:
         run: npm run build
 
       - name: Check publishable plugin package contents
-        run: npm pack --workspace @skills-hub/opencode-plugin --dry-run
+        run: npm pack --workspace opencode-skills-hub --dry-run
 
       - name: Upload server build
         uses: actions/upload-artifact@v4
