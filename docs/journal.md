@@ -52,55 +52,43 @@ E2E-сценарий: hub на ephemeral port → publish skill → `opencode de
 
 ### Следующие шаги
 
-Приоритеты: P0 — без этого нельзя считать срез готовым к реальным хостам; P1 — эксплуатационная зрелость; P2 — после стабилизации.
+Сервис внутренний, для локальной сети: TLS не форсируем (при доступе извне его терминирует reverse proxy), HA и реплики не проектируем. Остальное берём по мере реальной необходимости, без запаса.
 
-#### P0. Упаковка и проверка на реальных хостах
+#### Сейчас
 
-1. **Собрать dist/npm-пакет плагина.**
-   - Добавить `tsup` (или `tsc` + `exports`) для `apps/plugin`, собрать ESM с типами.
-   - Проверить `npm pack` и установку в чистый `~/.config/opencode/node_modules`.
-   - Acceptance: `opencode debug skill` видит скилл при подключении плагина как npm-пакета, без абсолютных путей.
-2. **Проверить global+project dedupe и приоритет конфигов.**
+1. **Global+project dedupe и приоритет конфигов (OQ-1).**
    - Реальный opencode 1.19.x: плагин указан и в global, и в project `opencode.json`; опции из `.opencode/skills-hub.json`.
-   - Acceptance: sync выполняется один раз, порядок опций совпадает с дизайном; зафиксировать фактическое поведение в `docs/design.md` OQ-1.
-3. **Два хоста / два проекта.**
+   - Acceptance: sync выполняется один раз, порядок опций совпадает с дизайном; фактическое поведение зафиксировано в `docs/design.md` OQ-1.
+2. **Два хоста / два проекта.**
    - Один хост с бакетами `default`, второй — `default+team` с override.
    - Acceptance: кэши не пересекаются, override побеждает, удаление скилла в hub отражается на обоих после рестарта.
-4. **Smoke с реальным TLS/reverse proxy.**
-   - `PUBLIC_URL=https://...`, cookie `Secure`, Origin-проверка, `caFile` для приватного CA.
-   - Acceptance: login/CSRF/read/write работают через proxy; http-запросы не принимаются при `REQUIRE_TLS=true`.
 
-#### P1. Эксплуатационная зрелость
+#### По необходимости
 
-5. **Push worker: ssh + terminal state.**
+3. **Push worker: ssh + terminal state.**
    - Allowlist хостов для `ssh://`, `GIT_ALLOW_PROTOCOL` по конфигу, восстановление зависших `pushing`, алерт после `failed`.
    - Acceptance: успешный push закрывает запись, non-fast-forward уходит в `failed` без бесконечного retry, ssh-remote работает при явном allowlist.
-6. **Метрики и алерты.**
+4. **Метрики.**
    - `/metrics`: manifest 304 rate, auth failures, git commits, push failures, reindex duration, sqlite busy, sync errors.
    - Acceptance: Prometheus scrape, алерт на push failures и `last_index_error`.
-7. **Rate limit по токену/маршруту.**
+5. **Rate limit по токену/маршруту.**
    - Сейчас есть только общий in-memory лимит на IP; добавить отдельные лимиты login/manifest/write и `Retry-After`.
    - Acceptance: 429 на login после N попыток, запись не страдает от read-нагрузки.
-8. **Backup/restore runbook.**
+6. **Backup/restore.**
    - `sqlite3 .backup`, `git bundle`/rsync, восстановление без токенов и с токенами, проверка reindex.
    - Acceptance: восстановленный hub отдаёт manifest и файлы; токены/сессии восстанавливаются только из БД.
-9. **Аудит: retention/export.**
+7. **Аудит: retention/export.**
    - 90 дней, JSON/CSV export, cron-очистка.
    - Acceptance: экспорт содержит commit/requestId, старые записи удаляются, UI не ломается.
-
-#### P2. Безопасность и развитие
-
-10. **Security-тесты.**
-    - Path traversal/fuzz, symlink в repo и write-path, YAML alias-бомба, oversized manifest, remote `ext::`/`file://`, scope escalation, CSRF/Origin.
-    - Acceptance: негативные кейсы покрыты тестами, ни один не даёт 500 с внутренними путями.
-11. **MCP hardening.**
-    - Лимиты размера tool-result, очистка сессий, опциональный human approval для `put_skill_file`/`delete_skill`, UI-индикатор write-токена.
-    - Acceptance: read-only токен не видит write tools; write-токен оставляет audit; сессия истекает.
-12. **v2 adapter.**
+8. **Security-тесты.**
+   - Path traversal/fuzz, symlink в repo и write-path, YAML alias-бомба, oversized manifest, remote `ext::`/`file://`, scope escalation, CSRF/Origin.
+   - Acceptance: негативные кейсы покрыты тестами, ни один не даёт 500 с внутренними путями.
+9. **MCP hardening.**
+   - Лимиты размера tool-result, очистка сессий, опциональный human approval для `put_skill_file`/`delete_skill`, UI-индикатор write-токена.
+   - Acceptance: read-only токен не видит write tools; write-токен оставляет audit; сессия истекает.
+10. **v2 adapter.**
     - Реализовать `ctx.skill.transform`/`reload` за существующим интерфейсом, включить feature detection.
     - Acceptance: контрактный тест на фейковом v2 runtime; v1-путь не регрессирует.
-13. **Опционально: sharding/read replica.**
-    - Только после измеренной необходимости; SQLite+git остаются single-writer.
 
 #### Команды для следующего цикла
 
@@ -214,3 +202,25 @@ npm pack --workspace opencode-skills-hub --dry-run
 ### Commit
 
 Коммит цикла в `master`, затем тег `v0.0.4`. Успешная публикация `0.0.4` через OIDC подтверждает trusted publisher.
+
+## 2026-11-07 — LAN-first defaults и чистка README
+
+### Что сделано
+
+- Порт по умолчанию 8787 → 8788, bind по умолчанию `0.0.0.0` (хаб обслуживает несколько хостов в локальной сети): `config.ts`, `Dockerfile`, `compose.yaml`, `.env.example`, README, design.md. 8787 остаётся только в исторических записях журнала.
+- Admin-токен теперь задаётся только через `SKILLS_HUB_ADMIN_TOKEN` и обязателен: без него сервер не стартует. Удалены bootstrap-файл, `startAdminBootstrap`, `consumeBootstrap`, `bootstrap_consumed` и `ADMIN_BOOTSTRAP_FILE`; токен не пишется в логи.
+- `REQUIRE_TLS` больше не включается автоматически при `NODE_ENV=production`: по умолчанию `false`. Сервис рассчитан на локальную сеть по HTTP; при доступе извне TLS терминирует reverse proxy.
+- Из планов убраны TLS-smoke как P0 и sharding/read replica. Остальные пункты переведены в «по необходимости»: не проектируем под будущие объёмы.
+- В design.md исправлены расхождения с кодом: у сессии нет idle-таймаута (TTL абсолютный), Origin проверяется только при заданном `PUBLIC_URL`, fail-closed в production отсутствует.
+- README вычищен от контракта API, таблицы scopes и политики публичного репозитория; таблица env-переменных оставлена как часть инструкции по запуску.
+
+### Verification
+
+```bash
+npm run typecheck   # green
+npm test            # 24 passed
+```
+
+### Commit
+
+Коммит не создавался: владелец не просил.
