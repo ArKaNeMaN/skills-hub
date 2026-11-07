@@ -61,7 +61,7 @@ before(async () => {
     scopes: ["skills:read", "buckets:read"],
     buckets: ["default", "team"],
   }).token
-  app = await createApp({ config: serverConfig, db, bootstrap: { token: "test-admin", source: "env" } })
+  app = await createApp({ config: serverConfig, db })
   await app.listen({ host: "127.0.0.1", port: 0 })
   const address = app.server.address()
   if (!address || typeof address === "string") throw new Error("no address")

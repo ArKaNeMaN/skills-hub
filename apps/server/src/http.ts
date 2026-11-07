@@ -15,7 +15,6 @@ import { nowIso, type Db } from "./db.js"
 import {
   adminTokenMatches,
   AuthError,
-  consumeBootstrap,
   createSession,
   createToken,
   parseCookies,
@@ -25,7 +24,6 @@ import {
   revokeSession,
   verifyBearer,
   verifySession,
-  type BootstrapState,
   type Principal,
   type TokenRow,
 } from "./auth.js"
@@ -48,7 +46,6 @@ import { handleMcp } from "./mcp.js"
 export interface AppContext {
   config: ServerConfig
   db: Db
-  bootstrap: BootstrapState
 }
 
 function requestId(request: FastifyRequest): string {
@@ -56,7 +53,7 @@ function requestId(request: FastifyRequest): string {
   return typeof header === "string" && header.length > 0 ? header : randomUUID()
 }
 
-function parseBootstrapBody(body: unknown): string {
+function parseAdminTokenBody(body: unknown): string {
   if (!body || typeof body !== "object") throw new HttpError(400, "invalid_request")
   const adminToken = (body as { adminToken?: unknown }).adminToken
   if (typeof adminToken !== "string" || adminToken.length === 0) throw new HttpError(400, "invalid_request")
@@ -259,13 +256,12 @@ export async function createApp(context: AppContext): Promise<FastifyInstance> {
   })
 
   app.post("/api/v1/admin/login", async (request, reply) => {
-    const adminToken = parseBootstrapBody(request.body)
-    if (!adminTokenMatches(context.bootstrap, adminToken)) throw new AuthError(401, "token_invalid")
+    const adminToken = parseAdminTokenBody(request.body)
+    if (!adminTokenMatches(context.config.adminToken, adminToken)) throw new AuthError(401, "token_invalid")
     const session = createSession(context.db, context.config, {
       ip: request.ip,
       userAgent: typeof request.headers["user-agent"] === "string" ? request.headers["user-agent"] : undefined,
     })
-    consumeBootstrap(context.config, context.db, context.bootstrap)
     setSessionCookie(reply, context.config, session.cookie)
     audit(context.db, {
       actorType: "admin",

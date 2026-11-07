@@ -83,7 +83,7 @@ before(async () => {
     scopes: ["skills:read", "buckets:read"],
     buckets: ["default"],
   }).token
-  app = await createApp({ config, db, bootstrap: { token: "mcp-admin", source: "env" } })
+  app = await createApp({ config, db })
 })
 
 after(async () => {

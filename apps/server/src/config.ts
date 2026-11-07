@@ -15,7 +15,6 @@ export interface ServerConfig {
   trashDir: string
   locksDir: string
   adminToken?: string
-  adminBootstrapFile: string
   sessionTtlHours: number
   gitAuthorName: string
   gitAuthorEmail: string
@@ -40,21 +39,17 @@ function bool(value: string | undefined, fallback: boolean): boolean {
 export function loadConfig(overrides: Partial<ServerConfig> = {}): ServerConfig {
   const dataDir = overrides.dataDir ?? process.env.DATA_DIR ?? path.join(process.cwd(), "data")
   const config: ServerConfig = {
-    host: overrides.host ?? process.env.HOST ?? "127.0.0.1",
-    port: overrides.port ?? int(process.env.PORT, 8787),
+    host: overrides.host ?? process.env.HOST ?? "0.0.0.0",
+    port: overrides.port ?? int(process.env.PORT, 8788),
     publicUrl: overrides.publicUrl ?? process.env.PUBLIC_URL,
     trustProxy: overrides.trustProxy ?? bool(process.env.TRUST_PROXY, false),
-    requireTls:
-      overrides.requireTls ??
-      bool(process.env.REQUIRE_TLS, process.env.NODE_ENV === "production"),
+    requireTls: overrides.requireTls ?? bool(process.env.REQUIRE_TLS, false),
     dataDir,
     dbPath: overrides.dbPath ?? path.join(dataDir, "hub.db"),
     reposDir: overrides.reposDir ?? path.join(dataDir, "repos"),
     trashDir: overrides.trashDir ?? path.join(dataDir, "trash"),
     locksDir: overrides.locksDir ?? path.join(dataDir, "locks"),
     adminToken: overrides.adminToken ?? process.env.SKILLS_HUB_ADMIN_TOKEN,
-    adminBootstrapFile:
-      overrides.adminBootstrapFile ?? process.env.ADMIN_BOOTSTRAP_FILE ?? path.join(dataDir, "admin-token"),
     sessionTtlHours: overrides.sessionTtlHours ?? int(process.env.SESSION_TTL_HOURS, 12),
     gitAuthorName: overrides.gitAuthorName ?? process.env.GIT_AUTHOR_NAME ?? "skills-hub",
     gitAuthorEmail: overrides.gitAuthorEmail ?? process.env.GIT_AUTHOR_EMAIL ?? "hub@skills-hub.local",

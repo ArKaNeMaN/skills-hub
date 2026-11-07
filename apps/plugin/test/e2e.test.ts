@@ -77,7 +77,7 @@ test("opencode debug skill sees a synced skill and survives offline", async (t) 
       scopes: ["skills:read", "buckets:read"],
       buckets: ["default"],
     }).token
-    app = await createApp({ config, db, bootstrap: { token: "e2e-admin", source: "env" } })
+    app = await createApp({ config, db })
     await app.listen({ host: "127.0.0.1", port: 0 })
     const address = app.server.address()
     if (!address || typeof address === "string") throw new Error("no address")

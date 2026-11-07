@@ -1,9 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
-import fs from "node:fs"
-import path from "node:path"
 import { hasScope, isAdmin, type Scope } from "@skills-hub/protocol"
 import type { ServerConfig } from "./config.js"
-import { getMeta, nowIso, setMeta, type Db } from "./db.js"
+import { nowIso, type Db } from "./db.js"
 
 export interface Principal {
   kind: "token" | "admin"
@@ -154,42 +152,11 @@ export function requireBucket(principal: Principal, bucketId: number): void {
   if (!principal.bucketIds.has(bucketId)) throw new AuthError(403, "bucket_forbidden")
 }
 
-export interface BootstrapState {
-  token?: string
-  source: "env" | "file" | "none"
-}
-
-export function startAdminBootstrap(config: ServerConfig): BootstrapState {
-  if (config.adminToken) {
-    try {
-      fs.unlinkSync(config.adminBootstrapFile)
-    } catch {
-      // ignore
-    }
-    return { token: config.adminToken, source: "env" }
-  }
-  const token = `shk_admin_${randomBytes(32).toString("base64url")}`
-  fs.mkdirSync(path.dirname(config.adminBootstrapFile), { recursive: true, mode: 0o700 })
-  fs.writeFileSync(config.adminBootstrapFile, `${token}\n`, { mode: 0o600 })
-  return { token, source: "file" }
-}
-
-export function adminTokenMatches(state: BootstrapState, candidate: string): boolean {
-  if (!state.token) return false
-  const a = Buffer.from(state.token)
+export function adminTokenMatches(expected: string | undefined, candidate: string): boolean {
+  if (!expected) return false
+  const a = Buffer.from(expected)
   const b = Buffer.from(candidate)
   return a.length === b.length && timingSafeEqual(a, b)
-}
-
-export function consumeBootstrap(config: ServerConfig, db: Db, state: BootstrapState): void {
-  if (state.source !== "file") return
-  setMeta(db, "bootstrap_consumed", "1")
-  try {
-    fs.unlinkSync(config.adminBootstrapFile)
-  } catch {
-    // ignore
-  }
-  state.token = undefined
 }
 
 export function createSession(
@@ -245,8 +212,4 @@ export function verifySession(db: Db, cookie: string | undefined): Principal {
 
 export function revokeSession(db: Db, sessionId: string): void {
   db.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ?").run(nowIso(), sessionId)
-}
-
-export function bootstrapConsumed(db: Db): boolean {
-  return getMeta(db, "bootstrap_consumed") === "1"
 }

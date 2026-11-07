@@ -7,7 +7,6 @@ import { after, before, test } from "node:test"
 import type { FastifyInstance } from "fastify"
 import { ensureDataDirs, loadConfig, type ServerConfig } from "../src/config.js"
 import { openDatabase, type Db } from "../src/db.js"
-import { startAdminBootstrap, type BootstrapState } from "../src/auth.js"
 import { createBucket } from "../src/indexer.js"
 import { repoDir } from "../src/git.js"
 import { createApp } from "../src/http.js"
@@ -15,7 +14,6 @@ import { createApp } from "../src/http.js"
 let root: string
 let config: ServerConfig
 let db: Db
-let bootstrap: BootstrapState
 let app: FastifyInstance
 let cookie: string
 let csrf: string
@@ -31,16 +29,15 @@ function headers(): Record<string, string> {
 
 before(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "skills-hub-write-"))
-  config = loadConfig({ dataDir: root, requireTls: false })
+  config = loadConfig({ dataDir: root, adminToken: "test-admin", requireTls: false })
   ensureDataDirs(config)
   db = openDatabase(config)
-  bootstrap = startAdminBootstrap(config)
   createBucket(config, db, { slug: "default", name: "Default" })
-  app = await createApp({ config, db, bootstrap })
+  app = await createApp({ config, db })
   const login = await app.inject({
     method: "POST",
     url: "/api/v1/admin/login",
-    payload: { adminToken: bootstrap.token },
+    payload: { adminToken: "test-admin" },
   })
   assert.equal(login.statusCode, 200)
   const setCookie = login.headers["set-cookie"]
@@ -54,14 +51,19 @@ after(async () => {
   fs.rmSync(root, { recursive: true, force: true })
 })
 
-test("bootstrap token file is deleted and token stops working", async () => {
-  assert.equal(fs.existsSync(config.adminBootstrapFile), false)
-  const second = await app.inject({
+test("admin login accepts only the configured token", async () => {
+  const wrong = await app.inject({
     method: "POST",
     url: "/api/v1/admin/login",
     payload: { adminToken: "wrong" },
   })
-  assert.equal(second.statusCode, 401)
+  assert.equal(wrong.statusCode, 401)
+  const empty = await app.inject({
+    method: "POST",
+    url: "/api/v1/admin/login",
+    payload: {},
+  })
+  assert.equal(empty.statusCode, 400)
 })
 
 test("mutations require a valid CSRF token", async () => {

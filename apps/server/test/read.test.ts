@@ -60,7 +60,7 @@ before(async () => {
     buckets: ["default"],
   })
   readToken = token.token
-  app = await createApp({ config, db, bootstrap: { token: "test-admin", source: "env" } })
+  app = await createApp({ config, db })
   await app.ready()
 })
 
