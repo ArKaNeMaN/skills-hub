@@ -20,6 +20,14 @@ interface McpSession {
 
 const sessions = new Map<string, McpSession>()
 
+export function invalidateMcpSessions(principalId: string): void {
+  for (const [id, session] of sessions) {
+    if (session.principalId !== principalId) continue
+    sessions.delete(id)
+    void session.transport.close()
+  }
+}
+
 function textResult(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value) }] }
 }

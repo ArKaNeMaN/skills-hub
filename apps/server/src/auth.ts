@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
 import { hasScope, isAdmin, type Scope } from "@skills-hub/protocol"
 import type { ServerConfig } from "./config.js"
-import { nowIso, type Db } from "./db.js"
+import { nowIso, transaction, type Db } from "./db.js"
 
 export interface Principal {
   kind: "token" | "admin"
@@ -119,6 +119,48 @@ export function tokenBuckets(db: Db, tokenId: string): Set<number> {
     bucket_id: number
   }[]
   return new Set(rows.map((row) => row.bucket_id))
+}
+
+export function tokenBucketSlugs(db: Db, tokenId: string): string[] {
+  const rows = db
+    .prepare(
+      "SELECT b.slug FROM token_buckets tb JOIN buckets b ON b.id = tb.bucket_id WHERE tb.token_id = ? ORDER BY b.slug",
+    )
+    .all(tokenId) as { slug: string }[]
+  return rows.map((row) => row.slug)
+}
+
+export interface UpdateTokenOptions {
+  scopes: Scope[]
+  allBuckets: boolean
+  buckets?: string[]
+}
+
+export function updateToken(db: Db, tokenId: string, options: UpdateTokenOptions): void {
+  let bucketIds: number[] | undefined
+  if (options.buckets && options.buckets.length > 0) {
+    const rows = db
+      .prepare(`SELECT id, slug FROM buckets WHERE slug IN (${options.buckets.map(() => "?").join(",")})`)
+      .all(...options.buckets) as { id: number; slug: string }[]
+    const found = new Set(rows.map((row) => row.slug))
+    const missing = options.buckets.filter((slug) => !found.has(slug))
+    if (missing.length) throw new Error(`unknown buckets: ${missing.join(", ")}`)
+    bucketIds = rows.map((row) => row.id)
+  }
+  transaction(db, () => {
+    db.prepare("UPDATE tokens SET scopes = ?, all_buckets = ? WHERE id = ?").run(
+      JSON.stringify(options.scopes),
+      options.allBuckets ? 1 : 0,
+      tokenId,
+    )
+    if (options.allBuckets) {
+      db.prepare("DELETE FROM token_buckets WHERE token_id = ?").run(tokenId)
+    } else if (options.buckets) {
+      db.prepare("DELETE FROM token_buckets WHERE token_id = ?").run(tokenId)
+      const insert = db.prepare("INSERT INTO token_buckets(token_id, bucket_id) VALUES(?,?)")
+      for (const bucketId of bucketIds ?? []) insert.run(tokenId, bucketId)
+    }
+  })
 }
 
 export function verifyBearer(db: Db, authorization: string | undefined): Principal {
