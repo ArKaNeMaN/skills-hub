@@ -7,6 +7,7 @@ import fastifyStatic from "@fastify/static"
 import {
   LIMITS,
   problem,
+  SCOPES,
   validateRelPath,
   type Scope,
 } from "@skills-hub/protocol"
@@ -22,6 +23,8 @@ import {
   requireBucket,
   requireScope,
   revokeSession,
+  tokenBucketSlugs,
+  updateToken,
   verifyBearer,
   verifySession,
   type Principal,
@@ -41,7 +44,7 @@ import {
   findBucket,
 } from "./services.js"
 import { deleteSkill, deleteSkillFile, putSkillFile } from "./write.js"
-import { handleMcp } from "./mcp.js"
+import { handleMcp, invalidateMcpSessions } from "./mcp.js"
 
 export interface AppContext {
   config: ServerConfig
@@ -479,6 +482,7 @@ export async function createApp(context: AppContext): Promise<FastifyInstance> {
         label: row.label,
         scopes: parseScopes(row.scopes),
         allBuckets: row.all_buckets === 1,
+        buckets: row.all_buckets === 1 ? [] : tokenBucketSlugs(context.db, row.id),
         createdAt: row.created_at,
         lastUsedAt: row.last_used_at,
         expiresAt: row.expires_at,
@@ -525,6 +529,123 @@ export async function createApp(context: AppContext): Promise<FastifyInstance> {
     return reply.status(201).send({ id: created.id, token: created.token })
   })
 
+  app.patch("/api/v1/admin/tokens/:id", async (request) => {
+    const principal = principalFromRequest(context, request)
+    requireCsrf(context, request, principal)
+    requireScope(principal, "tokens:admin")
+    const params = request.params as { id: string }
+    const row = context.db.prepare("SELECT * FROM tokens WHERE id = ?").get(params.id) as TokenRow | undefined
+    if (!row) throw new HttpError(404, "not_found")
+    if (row.revoked_at) throw new HttpError(409, "conflict", "token is revoked")
+
+    const raw = request.body
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new HttpError(400, "invalid_request")
+    const body = raw as { scopes?: unknown; buckets?: unknown; allBuckets?: unknown }
+    const hasScopes = Object.prototype.hasOwnProperty.call(body, "scopes")
+    const hasBuckets = Object.prototype.hasOwnProperty.call(body, "buckets")
+    const hasAllBuckets = Object.prototype.hasOwnProperty.call(body, "allBuckets")
+    if (!hasScopes && !hasBuckets && !hasAllBuckets) {
+      throw new HttpError(400, "invalid_request", "nothing to update")
+    }
+
+    let scopes = parseScopes(row.scopes)
+    if (hasScopes) {
+      if (!Array.isArray(body.scopes)) throw new HttpError(400, "invalid_request", "scopes must be an array")
+      const invalid = body.scopes.filter(
+        (item) => typeof item !== "string" || !(SCOPES as readonly string[]).includes(item),
+      )
+      if (invalid.length) {
+        throw new HttpError(
+          400,
+          "invalid_request",
+          `invalid scopes: ${invalid.slice(0, 10).map((item) => String(item)).join(", ")}`,
+        )
+      }
+      scopes = [...new Set(body.scopes as string[])] as Scope[]
+    }
+
+    let allBuckets = row.all_buckets === 1
+    if (hasAllBuckets) {
+      if (typeof body.allBuckets !== "boolean") {
+        throw new HttpError(400, "invalid_request", "allBuckets must be a boolean")
+      }
+      allBuckets = body.allBuckets
+    }
+    if (allBuckets && principal.kind !== "admin") {
+      throw new HttpError(403, "insufficient_scope", "allBuckets requires an admin session")
+    }
+
+    let providedBuckets: string[] | undefined
+    if (hasBuckets) {
+      if (!Array.isArray(body.buckets)) throw new HttpError(400, "invalid_request", "buckets must be an array")
+      const invalid = body.buckets.filter((item) => typeof item !== "string")
+      if (invalid.length) throw new HttpError(400, "invalid_request", "buckets must be strings")
+      providedBuckets = [...new Set(body.buckets as string[])]
+    }
+
+    let resultingSlugs: string[]
+    if (allBuckets) {
+      if (providedBuckets && providedBuckets.length > 0) {
+        throw new HttpError(400, "invalid_request", "buckets cannot be set when allBuckets is true")
+      }
+      resultingSlugs = []
+    } else if (providedBuckets) {
+      if (providedBuckets.length === 0) {
+        throw new HttpError(400, "invalid_request", "at least one bucket is required")
+      }
+      resultingSlugs = providedBuckets
+    } else {
+      if (hasAllBuckets && row.all_buckets === 1) {
+        throw new HttpError(400, "invalid_request", "buckets are required when disabling allBuckets")
+      }
+      resultingSlugs = tokenBucketSlugs(context.db, params.id)
+    }
+
+    const bucketIdBySlug = new Map<string, number>()
+    const missing: string[] = []
+    for (const slug of resultingSlugs) {
+      const bucket = findBucket(context.db, slug)
+      if (!bucket) missing.push(slug)
+      else bucketIdBySlug.set(slug, bucket.id)
+    }
+    if (missing.length) throw new HttpError(400, "invalid_request", `unknown buckets: ${missing.join(", ")}`)
+
+    if (principal.kind !== "admin" && !principal.scopes.includes("admin")) {
+      if (allBuckets) throw new HttpError(403, "insufficient_scope", "allBuckets requires an admin session")
+      for (const scope of scopes) {
+        if (!principal.scopes.includes(scope)) {
+          throw new HttpError(403, "insufficient_scope", "cannot grant a scope you do not have")
+        }
+      }
+      if (!principal.allBuckets) {
+        for (const slug of resultingSlugs) {
+          const bucketId = bucketIdBySlug.get(slug)
+          if (bucketId === undefined || !principal.bucketIds.has(bucketId)) {
+            throw new HttpError(403, "bucket_forbidden", "cannot grant a bucket you do not have")
+          }
+        }
+      }
+    }
+
+    updateToken(context.db, params.id, {
+      scopes,
+      allBuckets,
+      ...(hasBuckets ? { buckets: resultingSlugs } : {}),
+    })
+    invalidateMcpSessions(params.id)
+    const sortedBuckets = [...resultingSlugs].sort()
+    audit(context.db, {
+      actorType: principal.kind,
+      actorId: principal.id,
+      action: "token.update",
+      tokenId: params.id,
+      result: "ok",
+      ip: request.ip,
+      detail: JSON.stringify({ scopes, allBuckets, buckets: sortedBuckets }),
+    })
+    return { id: params.id, scopes, allBuckets, buckets: sortedBuckets }
+  })
+
   app.delete("/api/v1/admin/tokens/:id", async (request) => {
     const principal = principalFromRequest(context, request)
     requireCsrf(context, request, principal)
@@ -532,6 +653,7 @@ export async function createApp(context: AppContext): Promise<FastifyInstance> {
     const params = request.params as { id: string }
     const result = context.db.prepare("UPDATE tokens SET revoked_at = ? WHERE id = ?").run(nowIso(), params.id)
     if (result.changes === 0) throw new HttpError(404, "not_found")
+    invalidateMcpSessions(params.id)
     audit(context.db, {
       actorType: principal.kind,
       actorId: principal.id,
