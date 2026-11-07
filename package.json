@@ -11,9 +11,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test apps/server/test/*.test.ts apps/plugin/test/sync.test.ts",
     "test:e2e": "node --import tsx --test apps/plugin/test/e2e.test.ts",
-    "build": "npm run typecheck",
+    "build": "npm run build --workspace @skills-hub/server && npm run build --workspace @skills-hub/opencode-plugin",
+    "build:plugin": "npm run build --workspace @skills-hub/opencode-plugin",
+    "build:server": "npm run build --workspace @skills-hub/server",
     "start": "tsx apps/server/src/main.ts",
-    "cli": "tsx apps/server/src/cli.ts"
+    "cli": "tsx apps/server/src/cli.ts",
+    "start:dist": "node apps/server/dist/main.js",
+    "cli:dist": "node apps/server/dist/cli.js"
   },
   "dependencies": {
     "@fastify/static": "^10.1.10",
@@ -24,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },

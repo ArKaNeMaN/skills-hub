@@ -1,12 +1,42 @@
 {
   "name": "@skills-hub/opencode-plugin",
   "version": "0.0.1",
-  "private": true,
   "type": "module",
+  "description": "opencode plugin that delivers Agent Skills from a skills-hub server",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "agent-skills",
+    "skills"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
-  "dependencies": {
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "prepack": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArKaNeMaN/skills-hub.git",
+    "directory": "apps/plugin"
+  },
+  "devDependencies": {
     "@skills-hub/protocol": "0.0.1"
   }
 }
