@@ -1,0 +1,12 @@
+{
+  "name": "@skills-hub/opencode-plugin",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@skills-hub/protocol": "0.0.1"
+  }
+}
