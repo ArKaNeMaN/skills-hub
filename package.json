@@ -1,0 +1,33 @@
+{
+  "name": "skills-hub",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test apps/server/test/*.test.ts apps/plugin/test/sync.test.ts",
+    "test:e2e": "node --import tsx --test apps/plugin/test/e2e.test.ts",
+    "build": "npm run typecheck",
+    "start": "tsx apps/server/src/main.ts",
+    "cli": "tsx apps/server/src/cli.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.10",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "fastify": "^5.12.8",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
