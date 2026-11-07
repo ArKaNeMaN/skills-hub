@@ -7,11 +7,12 @@
 ### Сервер: Docker Compose
 
 ```bash
+cp .env.example .env
+# задайте SKILLS_HUB_ADMIN_TOKEN в .env
 docker compose up -d --build --wait
-docker compose exec skills-hub cat /data/admin-token
 ```
 
-Откройте `http://127.0.0.1:8787` и войдите токеном из файла. После первого входа bootstrap-токен удаляется. Для постоянного доступа задайте `SKILLS_HUB_ADMIN_TOKEN` в `.env` (шаблон: `.env.example`).
+Откройте `http://127.0.0.1:8788` (с других машин — `http://<ip-хоста>:8788`) и войдите токеном из `.env`.
 
 ### Сервер: готовый образ (опционально)
 
@@ -25,7 +26,7 @@ docker compose up -d --no-build
 
 Теги: стабильный тег без `-` (`v0.0.4`) даёт `0.0.4`, `0.0` и `latest`; prerelease-тег (`v0.1.0-rc.1`) даёт версию, `major.minor` и `edge`.
 
-Для production за reverse proxy с TLS задайте в `.env`:
+Хаб рассчитан на работу внутри локальной сети по HTTP. Если понадобится доступ извне, поставьте reverse proxy и задайте в `.env`:
 
 ```dotenv
 PUBLIC_URL=https://hub.example.com
@@ -33,7 +34,7 @@ TRUST_PROXY=true
 REQUIRE_TLS=true
 ```
 
-TLS терминирует proxy (Caddy, nginx). Порт `8787` наружу не публикуйте.
+TLS терминирует proxy (Caddy, nginx). Порт в интернет не публикуйте.
 
 ### Плагин opencode 1.19.x
 
@@ -68,6 +69,8 @@ docker compose exec skills-hub node dist/cli.js token create laptop --scopes ski
 
 Токен показывается один раз. Передайте его через `SKILLS_HUB_TOKEN` или `"token": "{env:SKILLS_HUB_TOKEN}"`. Отдельный `npm install` для плагина не нужен: opencode ставит npm-плагины при старте.
 
+Клиентскому токену плагина достаточно `skills:read,buckets:read`. MCP-токен по умолчанию получает `skills:read,skills:write,buckets:read`; `skills:delete` выдаётся только явно.
+
 Конфиг бывает глобальный (`~/.config/opencode/opencode.json`) и проектный (`opencode.json` или `.opencode/opencode.json`). При совпадении пакета проектный конфиг побеждает, поэтому регистрируйте плагин в одном месте.
 
 **Важно для 1.19.x:** `opencode plugin add` и объектная форма `"plugins": { "package": ..., "options": ... }` относятся к v2 и здесь не работают.
@@ -75,7 +78,7 @@ docker compose exec skills-hub node dist/cli.js token create laptop --scopes ski
 ## Проверка
 
 ```bash
-curl -fsS http://127.0.0.1:8787/health
+curl -fsS http://127.0.0.1:8788/health
 ```
 
 Если плагин уже подключён:
@@ -128,7 +131,7 @@ docker compose up -d --no-build
 
 ## Документация
 
-- [`docs/design.md`](docs/design.md): архитектура, API, безопасность.
+- [`docs/design.md`](docs/design.md): архитектура, API, конфигурация, безопасность.
 - [`docs/journal.md`](docs/journal.md): журнал реализации и открытые задачи.
 - [`docs/publishing.md`](docs/publishing.md): релизы npm/GHCR для мейнтейнеров.
 - [`apps/plugin/README.md`](apps/plugin/README.md): страница npm-пакета.
@@ -137,65 +140,24 @@ docker compose up -d --no-build
 ## Ограничения текущего среза
 
 - Push worker поддерживает только `https://` remotes; `ssh://` валидируется, но транспорт по умолчанию ограничен https.
-- HA и реплики не поддерживаются: SQLite и рабочее дерево git требуют одного writer.
-- v2-адаптер плагина зарезервирован; активен v1-путь через `cfg.skills.paths`.
-- `skills:delete` для MCP выдаётся только явно (opt-in).
-- Реальный TLS/reverse proxy и сценарий двух хостов ещё не проверены; это P0.
+- Один экземпляр: SQLite и git требуют одного writer.
+- `skills:delete` для MCP выдаётся только явно.
+- Сценарий с двумя хостами ещё не проверен.
 
 ## Конфигурация сервера
 
 | Env | По умолчанию | Смысл |
 |---|---|---|
-| `HOST` / `PORT` | `127.0.0.1` / `8787` | адрес API |
+| `HOST` / `PORT` | `0.0.0.0` / `8788` | адрес API |
 | `DATA_DIR` | `./data` | `hub.db`, `repos/`, `locks/`, `trash/` |
 | `PUBLIC_URL` | нет | внешний URL, Secure cookie, Origin |
-| `SKILLS_HUB_ADMIN_TOKEN` | нет | постоянный admin-токен |
-| `ADMIN_BOOTSTRAP_FILE` | `DATA_DIR/admin-token` | одноразовый bootstrap |
+| `SKILLS_HUB_ADMIN_TOKEN` | обязателен | admin-токен для входа |
 | `SESSION_TTL_HOURS` | `12` | TTL сессии |
 | `TRUST_PROXY` | `false` | доверять `X-Forwarded-*` |
-| `REQUIRE_TLS` | `true` при `NODE_ENV=production` | требовать TLS |
+| `REQUIRE_TLS` | `false` | требовать TLS |
 | `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` | `skills-hub` / `hub@skills-hub.local` | identity коммитов |
 | `GIT_PUSH_ENABLED` | `true` | выключатель push |
 | `MAX_MANIFEST_*` | см. `docs/design.md` | лимиты манифеста |
-
-## Scopes
-
-| Scope | Назначение |
-|---|---|
-| `skills:read` | manifest, файлы скиллов |
-| `skills:write` | запись одного файла скилла |
-| `skills:delete` | удаление файла или скилла |
-| `buckets:read` | список бакетов |
-| `buckets:write` | создание и удаление бакетов |
-| `tokens:admin` | выпуск и отзыв токенов |
-| `audit:read` | аудит |
-| `admin` | только bootstrap и сессия |
-
-Клиентский токен плагина: `skills:read,buckets:read`. MCP-токен по умолчанию: `skills:read,skills:write,buckets:read`; `skills:delete` выдаётся отдельно.
-
-## API
-
-Read:
-
-- `GET /api/v1/buckets`
-- `GET /api/v1/manifest?buckets=default,team`
-- `GET /api/v1/skills/:bucket/:name/files/*path`
-
-Admin и запись:
-
-- `POST /api/v1/admin/login`, `POST /api/v1/admin/logout`, `GET /api/v1/admin/session`
-- `GET/POST /api/v1/admin/buckets`, `DELETE /api/v1/admin/buckets/:slug?force=true`
-- `GET /api/v1/admin/skills?bucket=`
-- `GET /api/v1/admin/skills/:bucket/:name`
-- `PUT /api/v1/admin/skills/:bucket/:name/files/*path`: один файл равен одному commit
-- `DELETE /api/v1/admin/skills/:bucket/:name/files/*path`
-- `DELETE /api/v1/admin/skills/:bucket/:name`
-- `GET/POST /api/v1/admin/tokens`, `DELETE /api/v1/admin/tokens/:id`
-- `GET /api/v1/admin/audit?limit=100`
-- `POST /api/v1/admin/reindex`
-- `POST /mcp`: remote MCP (streamable HTTP)
-
-Admin-мутации с cookie требуют `X-CSRF-Token` из `GET /admin/session` или ответа login. Bearer-токены CSRF не требуют.
 
 ## MCP write flow
 
@@ -217,14 +179,7 @@ Admin-мутации с cookie требуют `X-CSRF-Token` из `GET /admin/se
 
 Поведение:
 
-- добавляет каталог активной генерации кэша в `cfg.skills.paths` до ленивого discovery;
-- при наличии `mcpToken` добавляет remote MCP `mcp.skills-hub` в `cfg.mcp`, не перезаписывая пользовательский ключ;
-- ограничивает синхронизацию: `connectTimeoutMs` 1500 мс, `timeoutMs` 1500 мс, первый запуск до `firstSyncTimeoutMs` 15000 мс;
-- при недоступном хабе opencode стартует из последней генерации;
+- отдаёт opencode скиллы из активной копии кэша;
+- при наличии `mcpToken` подключает MCP-сервер `skills-hub`, не перезаписывая ваш собственный;
+- при недоступном хабе opencode стартует из последней сохранённой копии;
 - при совпадении имён в разных бакетах побеждает последний в порядке `buckets` и `bucketsAdd`.
-
-Кэш: `~/.cache/opencode/skills-hub/<hash>/` с `current.json`, `generations/<uuid>/`, `tmp/`, `trash/`.
-
-## Публичный репозиторий
-
-Здесь не должно быть реальных хостов, адресов, SSH-целей, приватных бакетов, токенов, логов и рабочих путей. Для примеров используйте `hub.example.com` и `127.0.0.1`. Docker Compose выше предназначен для локального запуска и тестов. Для реальных хостов деплой, обновление и эксплуатация остаются задачей отдельного приложения `deploy`.
